@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Run this workflow when a new tag starting with 'v' is pushed
+
+jobs:
+  build_and_publish:
+    # Run on a standard runner, but execute steps inside an Alpine container
+    runs-on: ubuntu-latest
+    container: rust:latest-alpine # Use a Rust image based on Alpine
+
+    steps:
+      - name: Checkout code
+        # Use v3 of checkout action as v4 might have issues with some container setups
+        uses: actions/checkout@v3
+
+      # actions-rs/toolchain might not be needed if using a rust:latest-alpine container
+      # but let's keep it to ensure targets are added correctly if the base image is minimal
+      - name: Set up Rust and add targets
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal # Install minimal components
+          override: true
+          # Add targets for cross-compilation
+          targets: x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu
+
+      - name: Install cross-compilation tools (mingw-w64 for Windows)
+        # Use apk for Alpine package management
+        run: apk update && apk add mingw-w64-gcc
+
+      - name: Build for Linux (x86_64)
+        # Output paths are relative to the container's workspace /__w/your-repo/your-repo/
+        run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
+
+      - name: Build for Windows (x86_64)
+        # Output paths are relative to the container's workspace
+        run: cargo build --verbose --release --target x86_64-pc-windows-gnu
+
+      - name: Package Linux binary
+        shell: bash
+        run: |
+          # Navigate to the correct directory within the container's workspace
+          cd /__w/${{ github.repository }}/${{ github.repository }}/target/x86_64-unknown-linux-gnu/release
+          tar -czf amnezia-config-decoder-linux-x86_64.tar.gz amnezia-config-decoder
+          # Set the asset path relative to the runner's workspace for the release action
+          echo "ASSET=target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder-linux-x86_64.tar.gz" >> $GITHUB_ENV
+
+      - name: Package Windows binary
+        shell: bash
+        run: |
+          # Navigate to the correct directory within the container's workspace
+          cd /__w/${{ github.repository }}/${{ github.repository }}/target/x86_64-pc-windows-gnu/release
+          zip amnezia-config-decoder-windows-x86_64.zip amnezia-config-decoder.exe
+          # Append the asset path relative to the runner's workspace for the release action
+          echo "ASSET=$ASSET,target/x86_64-pc-windows-gnu/release/amnezia-config-decoder-windows-x86_64.zip" >> $GITHUB_ENV
+
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/') # Only create release for tags
+        with:
+          files: ${{ env.ASSET }} # Upload the packaged binaries as assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token is automatically provided by GitHub Actions
