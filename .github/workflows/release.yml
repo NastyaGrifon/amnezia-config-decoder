@@ -6,54 +6,92 @@ on:
       - 'v*' # Run this workflow when a new tag starting with 'v' is pushed
 
 jobs:
-  build_and_publish:
-    runs-on: ubuntu-latest # Use the standard Ubuntu runner
+  build_linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        # Use v4 of checkout action
         uses: actions/checkout@v4
 
-      - name: Set up Rust and add targets
+      - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          profile: minimal # Install minimal components
+          profile: minimal
           override: true
-          # Add targets for cross-compilation
-          targets: x86_64-unknown-linux-gnu, x86_64-pc-windows-gnu
 
-      - name: Install cross-compilation tools (mingw-w64 for Windows)
-        # Install the linker needed for Windows cross-compilation on Ubuntu
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
-
-      - name: Build for Linux (x86_64)
+      - name: Build (Linux x86_64)
         run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
 
-      - name: Build for Windows (x86_64)
-        run: cargo build --verbose --release --target x86_64-pc-windows-gnu
-
-      - name: Package Linux binary
+      - name: Package binary
         shell: bash
         run: |
           cd target/x86_64-unknown-linux-gnu/release
           tar -czf amnezia-config-decoder-linux-x86_64.tar.gz amnezia-config-decoder
-          echo "LINUX_ASSET=target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder-linux-x86_64.tar.gz" >> $GITHUB_ENV
 
-      - name: Package Windows binary
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amnezia-config-decoder-linux-x86_64
+          path: target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder-linux-x86_64.tar.gz
+
+  build_windows:
+    name: Build Windows x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust and add target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          targets: x86_64-pc-windows-gnu # Add Windows target
+
+      - name: Install cross-compilation tools (mingw-w64 for Windows)
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Build (Windows x86_64)
+        run: cargo build --verbose --release --target x86_64-pc-windows-gnu
+
+      - name: Package binary
         shell: bash
         run: |
           cd target/x86_64-pc-windows-gnu/release
           zip amnezia-config-decoder-windows-x86_64.zip amnezia-config-decoder.exe
-          echo "WINDOWS_ASSET=target/x86_64-pc-windows-gnu/release/amnezia-config-decoder-windows-x86_64.zip" >> $GITHUB_ENV
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amnezia-config-decoder-windows-x86_64
+          path: target/x86_64-pc-windows-gnu/release/amnezia-config-decoder-windows-x86_64.zip
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build_linux, build_windows]
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: amnezia-config-decoder-linux-x86_64
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: amnezia-config-decoder-windows-x86_64
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/') # Only create release for tags
         with:
           files: |
-            ${{ env.LINUX_ASSET }}
-            ${{ env.WINDOWS_ASSET }}
+            amnezia-config-decoder-linux-x86_64.tar.gz
+            amnezia-config-decoder-windows-x86_64.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token is automatically provided by GitHub Actions
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
