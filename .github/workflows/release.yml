@@ -1,0 +1,100 @@
+# .github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Run this workflow when a new tag starting with 'v' is pushed
+
+jobs:
+  build_linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        # Use default profile and specify targets to ensure std is installed
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: default # Use default profile
+          override: true
+          targets: x86_64-unknown-linux-gnu # Explicitly add Linux target
+
+
+      - name: Build (Linux x86_64)
+        run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amnezia-config-decoder-linux-x86_64 # Artifact name
+          path: target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder # Path to the binary
+
+  build_windows:
+    name: Build Windows x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        # Set up the base toolchain without adding targets here
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: default # Use default profile
+          override: true
+          # Do not specify targets here
+
+      - name: Add Windows GNU target
+        # Manually add the Windows GNU target using rustup
+        run: rustup target add x86_64-pc-windows-gnu
+
+      - name: Install cross-compilation tools (mingw-w64 for Windows)
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64
+
+      - name: Build (Windows x86_64)
+        # Explicitly set linker for Windows target using CARGO_TARGET env var
+        run: |
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc cargo build --verbose --release --target x86_64-pc-windows-gnu
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amnezia-config-decoder-windows-x86_64 # Artifact name
+          path: target/x86_64-pc-windows-gnu/release/amnezia-config-decoder.exe # Path to the binary
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build_linux, build_windows] # This job depends on the build jobs
+    if: startsWith(github.ref, 'refs/tags/') # Only create release for tags
+
+    steps:
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: amnezia-config-decoder-linux-x86_64 # Match artifact name
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: amnezia-config-decoder-windows-x86_64 # Match artifact name
+
+      - name: List downloaded files
+        run: ls -R
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v1
+        with:
+          # Files path are relative to the job's workspace after download
+          files: |
+            amnezia-config-decoder:amnezia-config-decoder-linux-x86_64
+            amnezia-config-decoder.exe:amnezia-config-decoder-windows-x86_64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

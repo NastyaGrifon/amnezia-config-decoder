@@ -43,7 +43,7 @@ The program inspects the provided input:
 **Basic Syntax:**
 
 ```bash
-./target/debug/amnezia-config-decoder <input_source> [-o output.file]
+amnezia-config-decoder <input_source> [-o output.file]
 ```
 
 *   `<input_source>`: This can be either:
@@ -58,32 +58,32 @@ The program inspects the provided input:
 **Decode a `vpn://` string provided directly on the command line:**
 
 ```bash
-./target/debug/amnezia-config-decoder "vpn://AAAGX.."
+amnezia-config-decoder "vpn://AAAGX.."
 ```
 (Note: Using quotes for the string might be necessary depending on your shell to prevent special characters from being interpreted.)
 
 **Decode a `vpn://` string from a file (`amnezia_config.vpn`) and print JSON to console:**
 
 ```bash
-./target/debug/amnezia-config-decoder amnezia_config.vpn
+amnezia-config-decoder amnezia_config.vpn
 ```
 
 **Decode a `vpn://` string from a file (`amnezia_config.vpn`) and save JSON to `decoded_config.json`:**
 
 ```bash
-./target/debug/amnezia-config-decoder amnezia_config.vpn -o decoded_config.json
+amnezia-config-decoder amnezia_config.vpn -o decoded_config.json
 ```
 
 **Encode a JSON configuration from a file (`my_config.json`) and print `vpn://` string to console:**
 
 ```bash
-./target/debug/amnezia-config-decoder my_config.json
+amnezia-config-decoder my_config.json
 ```
 
 **Encode a JSON configuration from a file (`my_config.json`) and save `vpn://` string to `encoded_config.vpn`:**
 
 ```bash
-./target/debug/amnezia-config-decoder my_config.json -o encoded_config.vpn
+amnezia-config-decoder my_config.json -o encoded_config.vpn
 ```
 
 ## Background
