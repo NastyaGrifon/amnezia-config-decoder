@@ -28,17 +28,11 @@ jobs:
       - name: Build (Linux x86_64)
         run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
 
-      - name: Package binary
-        shell: bash
-        run: |
-          cd target/x86_64-unknown-linux-gnu/release
-          tar -czf amnezia-config-decoder-linux-x86_64.tar.gz amnezia-config-decoder
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: amnezia-config-decoder-linux-x86_64 # Artifact name
-          path: target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder-linux-x86_64.tar.gz # Path to packaged binary
+          path: target/x86_64-unknown-linux-gnu/release/amnezia-config-decoder # Path to the binary
 
   build_windows:
     name: Build Windows x86_64
@@ -69,17 +63,11 @@ jobs:
         run: |
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc cargo build --verbose --release --target x86_64-pc-windows-gnu
 
-      - name: Package binary
-        shell: bash
-        run: |
-          cd target/x86_64-pc-windows-gnu/release
-          zip amnezia-config-decoder-windows-x86_64.zip amnezia-config-decoder.exe
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: amnezia-config-decoder-windows-x86_64 # Artifact name
-          path: target/x86_64-pc-windows-gnu/release/amnezia-config-decoder-windows-x86_64.zip # Path to packaged binary
+          path: target/x86_64-pc-windows-gnu/release/amnezia-config-decoder.exe # Path to the binary
 
   release:
     name: Create Release
@@ -103,7 +91,7 @@ jobs:
         with:
           # Files path are relative to the job's workspace after download
           files: |
-            amnezia-config-decoder-linux-x86_64/amnezia-config-decoder-linux-x86_64.tar.gz
-            amnezia-config-decoder-windows-x86_64/amnezia-config-decoder-windows-x86_64.zip
+            amnezia-config-decoder-linux-x86_64/amnezia-config-decoder
+            amnezia-config-decoder-windows-x86_64/amnezia-config-decoder.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
