@@ -12,43 +12,38 @@ enum AppError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("JSON error: {0}")]
-    JsonError(#[from] serde_json::Error),
+    JsonError(#[from] serde_json::Error), // For JSON parsing/serializing
     #[error("Base64 decode error: {0}")]
-    Base64DecodeError(#[from] base64::DecodeError),
+    Base64DecodeError(#[from] base64::DecodeError), // For Base64 decoding
     #[error("Zlib decompression error: {0}")]
-    ZlibDecompressionError(String), // Represent zlib error as a string, or wrap std::io::Error explicitly
+    ZlibDecompressionError(String), // Handle the error conversion manually
     #[error("Invalid data format: Missing vpn:// prefix")]
     InvalidFormatMissingPrefix,
     #[error("Invalid data length after decompression")]
     InvalidDataLength,
-    #[error("Invalid arguments: Cannot specify more than one input source (encoded string, --input, or --decode-file)")]
-    InvalidArgumentsMultipleInputs,
-    #[error("No arguments provided. Use --help for usage.")]
-    NoArguments,
+    #[error("Invalid arguments: Cannot specify more than one input source (string or input file)")]
+    InvalidArgumentsMultipleInputs, // Caught by clap's conflicts_with_all
+    #[error("No input provided. Provide an encoded string directly or specify an input file.")]
+    NoInputProvided,
+    #[error("Autodetection failed: Input does not appear to be a vpn:// string or valid JSON.")]
+    AutodetectionFailed,
+    #[error("Autodetection failed: Input file does not contain a vpn:// string or valid JSON.")]
+    AutodetectionFailedFileContent,
 }
 
-/// Converts AmneziaVPN configuration between Base64 string and JSON.
+/// Converts AmneziaVPN configuration between Base64 string and JSON, with autodetection.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
-    /// Base64 string with "vpn://" prefix containing AmneziaVPN configuration.
-    /// Cannot be used with --input or --decode-file.
-    #[arg(value_name = "vpn://...", conflicts_with_all = ["input", "decode_file"])]
-    encoded_string: Option<String>,
+    /// Encoded vpn:// string or a path to a file (.json for encoding, .vpn for decoding).
+    /// The program will autodetect the format.
+    #[arg(value_name = "input_source")]
+    input_source: String,
 
-    /// Path to JSON file to read configuration for encoding.
-    /// Cannot be used with the encoded string argument or --decode-file.
-    #[arg(short, long, value_name = "input.json", conflicts_with_all = ["encoded_string", "decode_file"])]
-    input: Option<PathBuf>,
-
-    /// Path to a file containing the Base64 string with "vpn://" prefix to decode.
-    /// Cannot be used with the encoded string argument or --input.
-    #[arg(short = 'd', long = "decode-file", value_name = "encoded.vpn", conflicts_with_all = ["encoded_string", "input"])]
-    decode_file: Option<PathBuf>,
-
-    /// Path to JSON file to write decoded configuration.
-    /// If not specified, configuration will be printed to console.
-    #[arg(short, long, value_name = "output.json")]
+    /// Path to output file. If input was encoded (vpn:// or .vpn), outputs JSON (.json).
+    /// If input was JSON (.json), outputs encoded string (.vpn).
+    /// If not specified, output will be printed to console.
+    #[arg(short, long, value_name = "output.file")]
     output: Option<PathBuf>,
 }
 
@@ -129,37 +124,36 @@ fn decode_config(encoded_string: &str) -> Result<Value, AppError> {
 fn main() -> Result<(), AppError> {
     let args = Args::parse();
 
-    // Determine the source of the encoded string to decode
-    let encoded_string_to_decode: Option<String> = if let Some(input_path) = args.input {
-        // Case 1: Encode JSON from file
-        let file_content = fs::read_to_string(&input_path)?;
-        let config: Value = from_slice(file_content.as_bytes())?;
-        let encoded_string = encode_config(&config)?;
-        println!("Encoded string:\n{}", encoded_string);
-        return Ok(()); // Exit after encoding
-    } else if let Some(encoded_string) = args.encoded_string {
-        // Case 2: Decode Base64 string from command line argument
-        Some(encoded_string)
-    } else if let Some(decode_file_path) = args.decode_file {
-        // Case 3: Decode Base64 string from file
-        fs::read_to_string(&decode_file_path).map(Some)?
-    } else {
-        // Case 4: No arguments provided (should be handled by clap's arg_required_else_help)
-        // This branch should ideally not be reached due to arg_required_else_help = true
-        return Err(AppError::NoArguments);
+    let input_content = match fs::read_to_string(&args.input_source) {
+        Ok(file_content) => { file_content },
+        Err(_) => { args.input_source }
     };
 
-    // If we have an encoded string (Case 2 or 3), proceed with decoding
-    if let Some(encoded_string) = encoded_string_to_decode {
-        let config = decode_config(&encoded_string)?;
+    // --- Autodetection Logic ---
+    if input_content.starts_with("vpn://") {
+        // Detected encoded string -> Decode
+        let config = decode_config(&input_content)?;
         let json_output = to_string_pretty(&config)?;
 
         if let Some(output_path) = args.output {
             fs::write(&output_path, json_output)?;
-            println!("Configuration saved to {}", output_path.display());
+            println!("Decoded configuration saved to {}", output_path.display());
         } else {
             println!("{}", json_output);
         }
+    } else if let Ok(config) = from_slice::<Value>(input_content.as_bytes()) {
+        // Detected valid JSON -> Encode
+        let encoded_string = encode_config(&config)?;
+
+        if let Some(output_path) = args.output {
+            fs::write(&output_path, encoded_string)?;
+            println!("Encoded configuration saved to {}", output_path.display());
+        } else {
+            println!("Encoded string:\n{}", encoded_string);
+        }
+    } else {
+        // Autodetection failed
+        return Err(AppError::AutodetectionFailed);
     }
 
     Ok(())
