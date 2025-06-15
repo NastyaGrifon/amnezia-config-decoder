@@ -94,7 +94,7 @@ jobs:
         with:
           # Files path are relative to the job's workspace after download
           files: |
-            amnezia-config-decoder
-            amnezia-config-decoder.exe
+            amnezia-config-decoder:amnezia-config-decoder-linux-x86_64
+            amnezia-config-decoder.exe:amnezia-config-decoder-windows-x86_64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
