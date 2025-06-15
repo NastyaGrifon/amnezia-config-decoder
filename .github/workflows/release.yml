@@ -86,6 +86,9 @@ jobs:
         with:
           name: amnezia-config-decoder-windows-x86_64 # Match artifact name
 
+      - name: List downloaded files
+        run: ls -R
+
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
         with:
