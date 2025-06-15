@@ -52,8 +52,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/') # Only create release for tags
         with:
-          files: |}
-
+          files: |
             ${{ env.LINUX_ASSET }}
             ${{ env.WINDOWS_ASSET }}
         env:
