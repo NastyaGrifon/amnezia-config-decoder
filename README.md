@@ -31,58 +31,59 @@ This will compile the project and create an executable in the `target/debug/` di
 
 ## Usage
 
-The compiled executable supports encoding and decoding configurations. The executable is located at `./target/debug/amnezia-config-decoder` (replace `debug` with `release` if you built in release mode).
+The compiled executable (`./target/debug/amnezia-config-decoder`) automatically detects whether to decode an encoded string or encode a JSON configuration based on the input format. The program takes one primary input source, which can be either a direct string or a path to a file. It also supports an optional output file.
 
-**Decoding from a Command-Line String:**
+**Autodetection Logic:**
 
-Provide the `vpn://` string directly as a positional argument.
+The program inspects the provided input:
+*   If the input starts with `vpn://`, it is treated as an **encoded string** and will be **decoded** to JSON.
+*   If the input is a path to an existing file, the program reads the file content. If the content starts with `vpn://`, it **decodes** the content. If the content is valid JSON, it **encodes** the content to a `vpn://` string.
+*   If the input does not start with `vpn://` and is not a valid JSON string (either directly or from a file), the program will report an error.
 
-```bash
-./target/debug/amnezia-config-decoder vpn://AAAGX.. [-o output.json]
-```
-
-*   `vpn://AAAGX..`: The Base64-encoded string containing the AmneziaVPN configuration.
-*   `-o output.json`: (Optional) Path to the JSON file where the decoded configuration will be saved. If not specified, the configuration will be printed to the console.
-
-**Decoding from a File:**
-
-Use the `-d` or `--decode-file` flag to specify a file containing the `vpn://` string.
+**Basic Syntax:**
 
 ```bash
-./target/debug/amnezia-config-decoder -d encoded.vpn [-o output.json]
+./target/debug/amnezia-config-decoder <input_source> [-o output.file]
 ```
 
-*   `-d encoded.vpn`: Path to the file containing the Base64 string with the "vpn://" prefix.
-*   `-o output.json`: (Optional) Path to the JSON file where the decoded configuration will be saved. If not specified, the configuration will be printed to the console.
+*   `<input_source>`: This can be either:
+    *   A direct `vpn://` encoded string.
+    *   A path to a file containing a `vpn://` encoded string (e.g., `config.vpn`).
+    *   A path to a file containing a JSON configuration (e.g., `config.json`).
 
-**Encoding from a JSON File:**
-
-Use the `-i` or `--input` flag to specify a JSON file to encode.
-
-```bash
-./target/debug/amnezia-config-decoder -i input.json
-```
-
-*   `-i input.json`: Path to the JSON file containing the configuration to encode. The encoded `vpn://` string will be printed to the console.
+*   `-o output.file`: (Optional) Path to the output file. If the input was decoded (from a `vpn://` string or `.vpn` file), the output file should typically have a `.json` extension. If the input was encoded (from a `.json` file), the output file would typically have a `.vpn` extension. If not specified, the output is printed to the console.
 
 ## Examples
 
-**Decode a Base64 string from the command line to the console:**
+**Decode a `vpn://` string provided directly on the command line:**
 
 ```bash
-./target/debug/amnezia-config-decoder vpn://AAAGX..
+./target/debug/amnezia-config-decoder "vpn://AAAGX.."
+```
+(Note: Using quotes for the string might be necessary depending on your shell to prevent special characters from being interpreted.)
+
+**Decode a `vpn://` string from a file (`amnezia_config.vpn`) and print JSON to console:**
+
+```bash
+./target/debug/amnezia-config-decoder amnezia_config.vpn
 ```
 
-**Decode a Base64 string from a file and save to another file:**
+**Decode a `vpn://` string from a file (`amnezia_config.vpn`) and save JSON to `decoded_config.json`:**
 
 ```bash
-./target/debug/amnezia-config-decoder -d amnezia_config.vpn -o config.json
+./target/debug/amnezia-config-decoder amnezia_config.vpn -o decoded_config.json
 ```
 
-**Encode a JSON configuration from a file (assuming `my_config.json` exists):**
+**Encode a JSON configuration from a file (`my_config.json`) and print `vpn://` string to console:**
 
 ```bash
-./target/debug/amnezia-config-decoder -i my_config.json
+./target/debug/amnezia-config-decoder my_config.json
+```
+
+**Encode a JSON configuration from a file (`my_config.json`) and save `vpn://` string to `encoded_config.vpn`:**
+
+```bash
+./target/debug/amnezia-config-decoder my_config.json -o encoded_config.vpn
 ```
 
 ## Background
