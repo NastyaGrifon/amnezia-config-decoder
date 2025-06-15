@@ -89,12 +89,17 @@ jobs:
       - name: List downloaded files
         run: ls -R
 
+      - name: Rename downloaded artifacts
+        run: |
+          mv amnezia-config-decoder amnezia-config-decoder-linux-x86_64
+          mv amnezia-config-decoder.exe amnezia-config-decoder-windows-x86_64.exe
+
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
         with:
-          # Files path are relative to the job's workspace after download
+          # Files path are now the renamed artifact files in the root
           files: |
-            amnezia-config-decoder:amnezia-config-decoder-linux-x86_64
-            amnezia-config-decoder.exe:amnezia-config-decoder-windows-x86_64.exe
+            amnezia-config-decoder-linux-x86_64
+            amnezia-config-decoder-windows-x86_64.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
